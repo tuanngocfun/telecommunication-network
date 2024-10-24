@@ -203,8 +203,8 @@ fi
 
 # Save the iptables rules to make them persistent
 echo "Saving iptables rules..."
-sudo iptables-save > /etc/iptables/rules.v4
-sudo ip6tables-save > /etc/iptables/rules.v6
+sudo iptables-save | sudo tee /etc/iptables/rules.v4 > /dev/null
+sudo ip6tables-save | sudo tee /etc/iptables/rules.v6 > /dev/null
 echo "Iptables rules saved."
 
 # Ensure iptables INPUT policy is DROP (for IPv4)
