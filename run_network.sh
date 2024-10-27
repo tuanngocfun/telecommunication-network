@@ -1,3 +1,4 @@
+ntn@stud-ngoc:~/telecom_network$ cat run_network.sh 
 #!/bin/bash
 
 # Step 1: Clean up old containers and images
@@ -24,14 +25,16 @@ cat <<EOF > ~/telecom_network/homegateway/Dockerfile
 FROM ubuntu:latest
 
 # Update and install necessary packages for PPPoE server and iptables
+RUN sed -i 's|http://archive.ubuntu.com/ubuntu/|http://mirror.math.princeton.edu/pub/ubuntu/|g' /etc/apt/sources.list
 RUN apt-get update && apt-get install -y \
   ppp \
   pppoe \
   openssh-server \
   iproute2 \
+  tcpdump \
   iputils-ping \
   sudo \
-  iptables
+  iptables 
 
 # Configure SSH
 RUN mkdir /var/run/sshd && echo 'root:acn2024' | chpasswd && \
@@ -49,12 +52,11 @@ RUN echo "require-chap" > /etc/ppp/pppoe-server-options && \
     echo "noccp" >> /etc/ppp/pppoe-server-options && \
     echo "novj" >> /etc/ppp/pppoe-server-options && \
     echo "noipx" >> /etc/ppp/pppoe-server-options && \
-    echo "ipv6 ::/56" >> /etc/ppp/pppoe-server-options && \
-    echo "ipv6 ::/56" >> /etc/ppp/pppoe-server-options
+    echo "ipv6 ::/56" >> /etc/ppp/pppoe-server-options 
 
 # Configure chap-secrets for PPPoE users
-RUN echo "username1 * 1234567890 10.0.0.50" >> /etc/ppp/chap-secrets && \
-    echo "username2 * 1234567890 *" >> /etc/ppp/chap-secrets && \
+RUN echo "username1 * 1234567890 10.0.0.50/32 fdc8:8ff1:24b5::/56" >> /etc/ppp/chap-secrets && \
+    echo "username2 * 1234567890 10.0.0.51/32 fdc8:8ff1:24b6::/56" >> /etc/ppp/chap-secrets && \
     echo "username3 * 1234567890 10.0.0.200" >> /etc/ppp/chap-secrets
 
 # Setup IP address pool for PPPoE Server
@@ -69,11 +71,15 @@ RUN mkdir -p /etc/network/if-up.d
 
 # Startup script to run PPPoE server on boot
 RUN echo '#!/bin/sh' > /etc/network/if-up.d/my_route && \
-    echo 'if [ "$IFACE" = "enp1s0" ]; then' >> /etc/network/if-up.d/my_route && \
-    echo '  pppoe-server -C addname -S isp -L 10.0.0.1 -p /etc/ppp/ipaddress_pool -I enp1s0 -m 1412' >> /etc/network/if-up.d/my_route && \
+    echo 'if [ "$IFACE" = "e1-1" ]; then' >> /etc/network/if-up.d/my_route && \
+    echo '  pppoe-server -C addname -S isp -L 10.0.0.1 -p /etc/ppp/ipaddress_pool -I e1-1 -m 1412' >> /etc/network/if-up.d/my_route && \
     echo 'fi' >> /etc/network/if-up.d/my_route
 
 RUN chmod +x /etc/network/if-up.d/my_route
+
+# Create the /var/log directory for storing logs
+RUN mkdir -p /var/log && \
+    echo "logfile /var/log/ppp.log" >> /etc/ppp/options
 
 # Start services
 CMD ["/bin/bash", "-c", "/usr/sbin/sshd -D && tail -f /dev/null"]
@@ -110,6 +116,10 @@ RUN echo "address=/mytelecom.local/192.168.1.1" >> /etc/dnsmasq.conf
 
 # Enable and start vnstat service for traffic accounting
 RUN systemctl enable vnstat.service
+
+# Create the /var/log directory for storing logs
+RUN mkdir -p /var/log && \
+    echo "logfile /var/log/ppp.log" >> /etc/ppp/options
 
 # Start services
 CMD ["/bin/bash", "-c", "service ssh start && service dnsmasq start && service vnstat start && tail -f /dev/null"]
@@ -214,5 +224,4 @@ sudo iptables -P INPUT DROP
 sudo ip6tables -P INPUT DROP
 
 echo "Script completed successfully."
-
 

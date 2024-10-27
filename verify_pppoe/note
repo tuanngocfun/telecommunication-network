@@ -1,0 +1,4 @@
+Run 'sudo docker exec -it clab-twonodes-node2 /bin/bash' in your host machine
+Now set 'sysctl -w net.ipv6.conf.all.forwarding=1'
+And check 'sysctl net.ipv6.conf.all.forwarding'
+Thus, this time the ubuntu container image will save the state, since the script 'run_network.sh' is not persist. This is a small patch.
