@@ -1,0 +1,30 @@
+#  set up with the correct MTU/MRU and is listening on the correct interface (e1-1)
+sudo docker exec -it clab-twonodes-node2 pkill pppoe-server
+sudo docker exec -it clab-twonodes-node2 pppoe-server -C ISP -L 10.0.0.1 -p /etc/ppp/ipaddress_pool -I e1-1 -m 1492 -D
+
+# Match MTU and MRU on Both Nodes
+sudo docker exec -it clab-twonodes-node1 bash -c "echo -e 'noauth\nuser \"username1\"\nplugin rp-pppoe.so\ne1-1\ndefaultroute\npersist\nmtu 1492\nmru 1492\nnopcomp\nnoaccomp\nlcp-echo-failure 5\nlcp-echo-interval 30\ndefault-asyncmap\nnobsdcomp\nnoccp\nnovj\nnovjccomp' > /etc/ppp/peers/myisp"
+
+#  Check Firewall Settings on Both Nodes
+sudo docker exec -it clab-twonodes-node1 iptables -F
+sudo docker exec -it clab-twonodes-node2 iptables -F
+
+# Verify the chap-secrets Configuration
+sudo docker exec -it clab-twonodes-node1 bash -c "echo 'username1 * 1234567890' > /etc/ppp/chap-secrets"
+sudo docker exec -it clab-twonodes-node2 bash -c "echo 'username1 * 1234567890' > /etc/ppp/chap-secrets"
+
+# Enable Detailed Debugging on node1
+sudo docker exec -it clab-twonodes-node1 pppd call myisp debug
+
+# Monitor Logs in Real-Time
+sudo docker exec -it clab-twonodes-node1 tail -f /var/log/ppp_client.log
+
+# Capture Network Traffic
+sudo docker exec -it clab-twonodes-node1 tcpdump -i e1-1 -vvv -w /var/log/pppoe_capture.pcap
+
+# Copy from container node to VM 
+sudo docker cp clab-twonodes-node1:/var/log/pppoe_capture.pcap ~/telecom_network/pppoe_capture.pcap
+
+# Analyze Capture in Wireshark
+scp -i ~/.ssh/id_rsa ntn@141.100.235.115:/home/ntn/telecom_network/pppoe_capture.pcap /media/ngoc/mydisk/master-program/Advanced_Communication_Network/vgu/lab/labpppoe_capture.pcap
+pppoe_capture.pcap                            100%  388     1.8KB/s   00:00 
